@@ -3,35 +3,55 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SH_TOK_BUFSIZE 64
-#define SH_TOK_DELIM "\t\r\b\a"
+#define TOK_BUFSIZE 1024
+#define TOK_DELIM " \t\r\b\a"
+#define MAX_TOKENS 64   
 
-char **shSplitLine(char * line)
-{
-    int bufsize = SH_TOK_BUFSIZE, counter = 0;
-    char **tokens = malloc(bufsize * sizeof(char*));
-    char *token;
+
+//citim inputul userului
+char * read_line(void){
+
+    char *line = NULL;
+    size_t size = 0;
+    getline(&line, &size, stdin);
+    return line;
+}
+
+//parsam inputul intr-un array de tokenuri
+
+char **parse_line(char *line){
+
+    int i = 0;
+    char** tokens = malloc(MAX_TOKENS * sizeof(char*));
+    char* token;
 
     if(!tokens){
         fprintf(stderr, "shell: allocation error\n");
         exit(EXIT_FAILURE);
     }
 
-    token = strtok(line, SH_TOK_DELIM);
-    while (token != NULL){
-        tokens[counter] = token;
-        counter++;
+    token = strtok(line, TOK_DELIM);
+    while(token != NULL){
         
-        if(counter >= bufsize){
-            bufsize += SH_TOK_BUFSIZE;
-            tokens = realloc(tokens, bufsize * sizeof(char*));
-            if(!tokens){
-                fprintf(stderr, "shell: allocation error\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-        token = strtok(NULL, SH_TOK_DELIM);
+        tokens[i++] = token;
+        token = strtok(NULL, TOK_DELIM);
     }
-    tokens[counter] = NULL;
+    tokens[i] = NULL;
     return tokens;
 }
+
+
+int main(){
+
+    char ** cmd;
+
+    cmd = malloc(MAX_TOKENS * sizeof(char**));
+    
+    cmd = (parse_line(read_line()));
+
+    for(int i = 0 ; cmd[i] ; ++i)
+        printf("%s ", cmd[i]);
+    return 0;
+
+}
+
