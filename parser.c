@@ -4,7 +4,8 @@
 #include <string.h>
 
 #define TOK_BUFSIZE 1024
-#define TOK_DELIM " \t\r\b\a"
+// am adaugat si \n ca separator :)
+#define TOK_DELIM " \t\r\b\a\n"
 #define MAX_TOKENS 64   
 
 
@@ -40,18 +41,46 @@ char **parse_line(char *line){
     return tokens;
 }
 
+// executa comanda
+// momentan: fara pipe, &&, || sau redirectionari
+void execute(char *cmd[]) {
+    pid_t pid;
 
-int main(){
-
-    char ** cmd;
-
-    cmd = malloc(MAX_TOKENS * sizeof(char**));
-    
-    cmd = (parse_line(read_line()));
-
-    for(int i = 0 ; cmd[i] ; ++i)
-        printf("%s ", cmd[i]);
-    return 0;
-
+    pid = fork();
+    if (pid == 0) {
+        // copil
+        int status = execvp(cmd[0], cmd);
+        if (status < 0) {
+            printf("Eroare in timpul executiei comenzii.\n");
+        }
+        exit(0);
+    } else if (pid > 0) {
+        wait(NULL);
+    } else {
+        printf("Eroare la fork.\n");
+        return;
+    }
 }
 
+
+int main() {
+    char **cmd;
+
+    cmd = malloc(MAX_TOKENS * sizeof(char **));
+
+    // shell main loop
+    while (1) {
+        // luam input utilizator
+        cmd = (parse_line(read_line()));
+
+        // daca se da enter asteptam urmatoare comanda
+        if (!cmd) {
+            continue;
+        }
+
+        // executa comanda
+        execute(cmd);
+    }
+    free(cmd);
+    return 0;
+}
