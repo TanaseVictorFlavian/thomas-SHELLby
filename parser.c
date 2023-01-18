@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #define TOK_BUFSIZE 1024
 // am adaugat si \n ca separator :)
@@ -9,6 +10,14 @@
 #define MAX_TOKENS 64
 
 char *error;
+
+// creaza fisier cu numele dat in directorul curent
+void touch(char *file_name) {
+    if (!fopen(file_name, "w")) {
+        error = "can't create file.\n";
+        return;
+    }
+}
 
 // cp me sempai >_<
 void cp(char *input_file, char *output_file) {
@@ -19,7 +28,7 @@ void cp(char *input_file, char *output_file) {
         return;
     }
     // deschide fisier iesire
-    int output = open(output_file, O_WRONLY | O_CREAT);
+    int output = open(output_file, O_WRONLY);
     if (output == -1) {
         error = "cant open output file.\n";
         return;
@@ -113,7 +122,6 @@ int main(int argc, char **argv) {
     // while (1) {
     //     // luam input utilizator
     //     cmd = (parse_line(read_line()));
-
     //     // daca se da enter asteptam urmatoare comanda
     //     if (!cmd) {
     //         continue;
