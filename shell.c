@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include "errorDefines.h"
 
 #define TOK_BUFSIZE 1024
@@ -29,8 +30,8 @@ void help(){
 }
 
 int cmd_counter, nr_tokens, error;
-char cwd[1024], *history_log, *output, *command_line, *token;
-char ** cmd, **tokens;
+char cwd[1024], *output, *command_line, *token;
+char ** cmd, **tokens, **history_log;
 
 void error_handler(int error){
     switch (error)
@@ -79,10 +80,14 @@ void error_handler(int error){
     case 12:
         puts("Invalid number of operands for the given command");
         break;
-
+    case 13:
+        puts("Error : couldn't list current directory");
+        break;
     }
 
 }
+
+void execute();
 
 //clears terminal
 void clear(){
@@ -101,6 +106,15 @@ void pwd(){
     printf("%s\n", cwd);
 }
 
+// print arguments
+// first token is echo
+void echo(){
+    for (int i = 1; i < nr_tokens; i++) {
+        printf("%s ", tokens[i]);
+    }
+    printf("\n");
+}
+
 void cp(char *input_file, char *output_file) {
     // deschide fisier intrare
     int input = open(input_file, O_RDONLY);
@@ -108,8 +122,8 @@ void cp(char *input_file, char *output_file) {
         error = OPEN_FILE_ERROR;
     }
     // deschide fisier iesire
-    int output = open(output_file, O_WRONLY);
-    if (output == -1) {
+    int outputt = open(output_file, O_WRONLY);
+    if (outputt == -1) {
         error = OPEN_FILE_ERROR;
     }
 
@@ -120,7 +134,7 @@ void cp(char *input_file, char *output_file) {
 
     nread = read(input, buff, size);
     while (nread > 0) {
-        nwrite = write(output, buff, nread);
+        nwrite = write(outputt, buff, nread);
         if (nwrite != nread) {
             error = READ_FILE_ERROR;
         }
@@ -131,7 +145,7 @@ void cp(char *input_file, char *output_file) {
     if (close(input) < 0) {
         error = CLOSE_FILE_ERROR;
     }
-    if (close(output) < 0) {
+    if (close(outputt) < 0) {
         error = CLOSE_FILE_ERROR;
     }
 }
@@ -172,20 +186,43 @@ void rmdr(char* folder_name){
 }
 
 void history(){
-    printf("%s\n", history_log);
+
+    if(cmd_counter == 0)
+        puts("There are no previous commands saved in the history");
+
+    for(int i = 0 ; i < cmd_counter ;++i){
+        printf("%s", history_log[i]);
+    }
 }
 
-void addToHistory(char** cmd){
+void addToHistory(){
     
-    for(int i = 0 ; cmd[i] ; ++i)
-        strcat(history_log, cmd[i]);
-        strcat(history_log, " ");
-    strcat(history_log, "\n");
+    history_log[cmd_counter++] = command_line;
 
 }
 
-//citim inputul userului
+void ls(){
+    pid_t pid;
 
+    pid = fork();
+    if (pid == 0) {
+        // copil
+        char *argl[] = {"ls", NULL};
+        int status = execvp(argl[0],argl);
+        if (status < 0) {
+            error = LIST_DIRECTORY_ERROR;
+        }
+        exit(0);
+    } else if (pid > 0) {
+        wait(NULL);
+    } else {
+        error = FORK_ERROR;
+        return;
+    }
+}
+
+
+// citim inputul intr-un buffer
 char *read_line(void){
 
     char *line = NULL;
@@ -194,20 +231,19 @@ char *read_line(void){
     return line;
 }
 
+//tratam piepurile si operatorii logici || si &&
 //parsam inputul intr-un array de tokenuri
 
 
-void parse_line(char *line){
+void parse_line(){
 
-    char** tokens = malloc(MAX_TOKENS * sizeof(char*));
     char* token;
 
     if(!tokens){
         error = SHELL_ALLOC_ERROR;
     }
 
-    token = strtok(line, TOK_DELIM);
-    int nr_tokens = 0;
+    token = strtok(command_line, TOK_DELIM);
     while(token != NULL)
     {
     	//parcurgem fiecare cuvant
@@ -222,7 +258,7 @@ void parse_line(char *line){
     		{
     			free(output);
     			output = malloc(TOK_BUFSIZE * sizeof(char));
-    			execute(tokens, nr_tokens);
+    			execute();
     		}
     		
     		// trecem la comanda de dupa pipe
@@ -246,14 +282,14 @@ void parse_line(char *line){
     		//executam comanda dupa pasii de mai sus
     		free(output);
     		output = malloc(TOK_BUFSIZE * sizeof(char));
-    		execute(tokens, nr_tokens);
+    		execute();
     		
     	}
     	else if(!strcmp(wrd,"||"))
     	{
     		free(output);
     		output=malloc(TOK_BUFSIZE * sizeof(char));
-    		execute(tokens, nr_tokens);
+    		execute();
     		
     		if(error != 0)
     		{
@@ -290,7 +326,7 @@ void parse_line(char *line){
     	{
     		free(output);
     		output=malloc(TOK_BUFSIZE * sizeof(char));
-    		execute(tokens, nr_tokens);
+    		execute();
     		
     		if(error != 0) break;
     		
@@ -304,43 +340,113 @@ void parse_line(char *line){
 }
 
 //rescriem
-// void execute(char **tokens, int token_number) {
+void execute() {
 
-//     if(!strcmp(tokens[0], "help")){
-//         if(token_number != 1){
-//             error = INVALID_ARG_NUMBER;
-//             return;
-//         }
-//         help();
-//     }
+    if(!strcmp(tokens[0], "clear")){
+        if(nr_tokens != 1){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        clear();
+    }
 
-//     else if (!strcmp(tokens[0], "history")){
-//         if(token_number != 1){
-//             error = INVALID_ARG_NUMBER;
-//             return;
-//         }
-//     }
-//         else if (!strcmp(tokens[0], "cd")){
-//         if(token_number > 2){
-//             error = INVALID_ARG_NUMBER;
-//             return;
-//         }
-//     }
+    else if(!strcmp(tokens[0], "touch")){
+        if(nr_tokens != 2){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        touch(tokens[1]);
+    }
+
+    else if(!strcmp(tokens[0], "pwd")){
+        if(nr_tokens != 1){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        pwd();
+    }
+
+    else if(!strcmp(tokens[0], "echo")){
+        echo();
+    }
 
 
 
+    else if(!strcmp(tokens[0], "cp")){
+        if(nr_tokens != 3){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        cp(tokens[1], tokens[2]);
+    }
+
+    else if(!strcmp(tokens[0], "rmfile")){
+        if(nr_tokens != 2){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        rmfile(tokens[1]);
+    }
+
+    else if(!strcmp(tokens[0], "makedir")){
+        if(nr_tokens != 2){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        makedir(tokens[1]);
+    }
+
+    else if(!strcmp(tokens[0], "rmdr")){
+        if(nr_tokens != 2){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+       rmdr(tokens[1]);
+    }
+
+    else if(!strcmp(tokens[0], "cp")){
+        if(nr_tokens != 3){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        cp(tokens[1], tokens[2]);
+    }
+
+    else if(!strcmp(tokens[0], "ls")){
+        ls();
+    }
+
+    else if(!strcmp(tokens[0], "help")){
+        if(nr_tokens != 1){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        help();
+    }
 
 
-
-// }
+    else if (!strcmp(tokens[0], "history")){
+        if(nr_tokens != 1){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        history();
+    }
+        else if (!strcmp(tokens[0], "cd")){
+        if(nr_tokens > 2){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+    }
+}
 
 
 int main(){
 
-    char ** cmd;
-    history_log = malloc(TOK_BUFSIZE * sizeof(char));
+    history_log = malloc(TOK_BUFSIZE * sizeof(char*));
     cmd = malloc(MAX_TOKENS * sizeof(char**));
     output = malloc(TOK_BUFSIZE * sizeof(char));
+    command_line = malloc(TOK_BUFSIZE * sizeof(char));
     // cmd = (parse_line(read_line()));
 
 
@@ -351,32 +457,36 @@ int main(){
 
     while (1) 
     {
-    	command_line=read_line();
-
-    	
+        
+        tokens = malloc(MAX_TOKENS * sizeof(char*));
         if(!getcwd(cwd, sizeof(cwd))){
             fprintf(stderr, "Error: getcwd() error");
             exit(EXIT_FAILURE);
         }
+
+        printf("%s/@: ", cwd);
+        command_line = read_line();
+        addToHistory();
     	// daca se da enter asteptam urmatoare comanda
         if (command_line==NULL) 
 		{
             continue;
         }
 
-		cmd_counter++;
 
         // luam input utilizator
-        parse_line(command_line);
+        parse_line();
 
        	//pe aici trebuie adaugat comamand_line in history
        	//putem sa le si numerotam, dar trebuie sa o salvam drept char ca sa o afisam
 	
         // executa comanda daca nu am avut nicio eroare
-        if(error != 0){
+        if(error == 0){
         	free(output);
         	output = malloc(TOK_BUFSIZE * sizeof(char));
-        	execute(tokens, nr_tokens);
+        	execute();
+            free(tokens);
+            nr_tokens = 0;
         }
         
         //daca avem o eroare ii afisam mesajul corespunzator
