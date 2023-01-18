@@ -16,6 +16,7 @@
 
 
 void help(){
+
     puts("Commands listed below:\n");
     puts("clear: clears the terminal");
     puts("pwd: returns the current directory path");
@@ -25,13 +26,14 @@ void help(){
     puts("echo: writes arguments to the standard output");
     puts("touch: creates an empty file in the current directory");
     puts("ls: lists all files and directories from the current directory");
-    puts("cp: copies the content of a file into another file\n");
+    puts("cp: copies the content of a file into another file");
+    puts("exit : exits the shell\n");
 
 }
 
 int cmd_counter, nr_tokens, error;
 char cwd[1024], *output, *command_line, *token;
-char ** cmd, **tokens, **history_log;
+char **tokens, **history_log;
 
 void error_handler(int error){
     switch (error)
@@ -83,6 +85,10 @@ void error_handler(int error){
     case 13:
         puts("Error : couldn't list current directory");
         break;
+    case 14:
+        puts("Error : unknown command given");
+        break;
+    
     }
 
 }
@@ -94,6 +100,7 @@ void clear(){
     //escape sequence
     write(1, "\33[H\33[2J", 7);
 }
+
 
 // creaza fisier cu numele dat in directorul curent
 void touch(char *file_name) {
@@ -191,14 +198,15 @@ void history(){
         puts("There are no previous commands saved in the history");
 
     for(int i = 0 ; i < cmd_counter ;++i){
-        printf("%s", history_log[i]);
+        printf("%s\n", history_log[i]);
     }
 }
 
-void addToHistory(){
+void addToHistory(char* cmd){
     
-    history_log[cmd_counter++] = command_line;
-
+    history_log[cmd_counter] = malloc(1024 * sizeof(char));
+    strcpy(history_log[cmd_counter++], cmd);
+    
 }
 
 void ls(){
@@ -432,11 +440,21 @@ void execute() {
         }
         history();
     }
-        else if (!strcmp(tokens[0], "cd")){
+    else if (!strcmp(tokens[0], "cd")){
         if(nr_tokens > 2){
             error = INVALID_ARG_NUMBER;
             return;
         }
+    }
+    else if (!strcmp(tokens[0], "exit")){
+        if(nr_tokens != 1){
+            error = INVALID_ARG_NUMBER;
+            return;
+        }
+        exit(EXIT_SUCCESS);
+    }
+    else {
+        error = UNKNOWN_COMMAND;
     }
 }
 
@@ -444,13 +462,7 @@ void execute() {
 int main(){
 
     history_log = malloc(TOK_BUFSIZE * sizeof(char*));
-    cmd = malloc(MAX_TOKENS * sizeof(char**));
-    output = malloc(TOK_BUFSIZE * sizeof(char));
     command_line = malloc(TOK_BUFSIZE * sizeof(char));
-    // cmd = (parse_line(read_line()));
-
-
-    // shell_output = malloc(TOK_BUFSIZE * sizeof(char));
  
     // aflam path-ul
 
@@ -458,7 +470,9 @@ int main(){
     while (1) 
     {
         
+        output = malloc(TOK_BUFSIZE * sizeof(char));
         tokens = malloc(MAX_TOKENS * sizeof(char*));
+        nr_tokens = 0;
         if(!getcwd(cwd, sizeof(cwd))){
             fprintf(stderr, "Error: getcwd() error");
             exit(EXIT_FAILURE);
@@ -466,14 +480,12 @@ int main(){
 
         printf("%s/@: ", cwd);
         command_line = read_line();
-        addToHistory();
+        addToHistory(command_line);
     	// daca se da enter asteptam urmatoare comanda
         if (command_line==NULL) 
 		{
             continue;
         }
-
-
         // luam input utilizator
         parse_line();
 
@@ -486,7 +498,7 @@ int main(){
         	output = malloc(TOK_BUFSIZE * sizeof(char));
         	execute();
             free(tokens);
-            nr_tokens = 0;
+            free(output);
         }
         
         //daca avem o eroare ii afisam mesajul corespunzator
