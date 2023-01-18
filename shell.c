@@ -31,7 +31,7 @@ void help(){
 
 int cmd_counter, nr_tokens, error;
 char cwd[1024], *output, *command_line, *token;
-char ** cmd, **tokens, **history_log;
+char **tokens, **history_log;
 
 void error_handler(int error){
     switch (error)
@@ -362,9 +362,6 @@ void parse_line(){
                         // acest caz trebuie tratat doar daca exista o comanda buna in sirul celorconditionate de ||, altfel sirul conditionat de && e din start fals 
     				token = strtok(NULL, TOK_DELIM);
     			}
-    			// if(!strcmp(token, "\0")) 
-                //     // inseamna ca nicio comanda nu a fost buna, rezultatul total e fals
-                //     error = LOGIC_OPERATION_FALSE; 
     		}
     		
     	}
@@ -489,16 +486,7 @@ void execute() {
 int main(){
 
     history_log = malloc(TOK_BUFSIZE * sizeof(char*));
-    cmd = malloc(MAX_TOKENS * sizeof(char**));
-    output = malloc(TOK_BUFSIZE * sizeof(char));
     command_line = malloc(TOK_BUFSIZE * sizeof(char));
-    // cmd = (parse_line(read_line()));
-
-
-    // shell_output = malloc(TOK_BUFSIZE * sizeof(char));
- 
-    // aflam path-ul
-
 
     while (1) 
     {
@@ -511,20 +499,17 @@ int main(){
             exit(EXIT_FAILURE);
         }
         printf("%s//\U0001F64F: ", cwd);
-        // "\U0001F600"
+
         //printf("%s/@: ", cwd);
         command_line = read_line();
         addToHistory(command_line);
     	// daca se da enter asteptam urmatoare comanda
-        if (command_line==NULL) 
+        if (command_line == NULL) 
 		{
             continue;
         }
         // luam input utilizator
         parse_line();
-
-       	//pe aici trebuie adaugat comamand_line in history
-       	//putem sa le si numerotam, dar trebuie sa o salvam drept char ca sa o afisam
 	
         // executa comanda daca nu am avut nicio eroare
         if(error == 0){
