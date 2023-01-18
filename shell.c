@@ -374,12 +374,11 @@ void parse_line(){
     		    free(output);
     		    output=malloc(TOK_BUFSIZE * sizeof(char));
             }
-            //else
-                // iesi din functie
-                // nu scrie nimic
+
     		execute(tokens, nr_tokens);
     		
-    		if(error != 0) break;
+    		if(error != 0) 
+                return;
     		
     		nr_tokens = 0;
     		
@@ -511,8 +510,9 @@ int main(){
             fprintf(stderr, "Error: getcwd() error");
             exit(EXIT_FAILURE);
         }
-
-        printf("%s/@: ", cwd);
+        printf("%s//\U0001F64F: ", cwd);
+        // "\U0001F600"
+        //printf("%s/@: ", cwd);
         command_line = read_line();
         addToHistory(command_line);
     	// daca se da enter asteptam urmatoare comanda
