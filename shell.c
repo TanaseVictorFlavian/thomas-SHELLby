@@ -16,7 +16,6 @@
 
 
 void help(){
-
     puts("Commands listed below:\n");
     puts("clear: clears the terminal");
     puts("pwd: returns the current directory path");
@@ -26,14 +25,13 @@ void help(){
     puts("echo: writes arguments to the standard output");
     puts("touch: creates an empty file in the current directory");
     puts("ls: lists all files and directories from the current directory");
-    puts("cp: copies the content of a file into another file");
-    puts("exit : exits the shell\n");
+    puts("cp: copies the content of a file into another file\n");
 
 }
 
 int cmd_counter, nr_tokens, error;
 char cwd[1024], *output, *command_line, *token;
-char **tokens, **history_log;
+char ** cmd, **tokens, **history_log;
 
 void error_handler(int error){
     switch (error)
@@ -85,10 +83,6 @@ void error_handler(int error){
     case 13:
         puts("Error : couldn't list current directory");
         break;
-    case 14:
-        puts("Error : unknown command given");
-        break;
-    
     }
 
 }
@@ -101,27 +95,35 @@ void clear(){
     write(1, "\33[H\33[2J", 7);
 }
 
-
 // creaza fisier cu numele dat in directorul curent
+//rez_output
 void touch(char *file_name) {
-    if (!fopen(file_name, "w")) {
+	FILE *aux;
+	aux=fopen(file_name, "w");
+    if (!aux) 
         error = CREATE_FILE_ERROR;
-    }
+    fclose(aux);
 }
 
+//rez_output
 void pwd(){
     printf("%s\n", cwd);
+    strcat(output, cwd);
 }
 
 // print arguments
 // first token is echo
+//rez_output
 void echo(){
     for (int i = 1; i < nr_tokens; i++) {
         printf("%s ", tokens[i]);
+        strcat(output, tokens[i]);
+        strcat(output, " ");
     }
     printf("\n");
 }
 
+//rez_output
 void cp(char *input_file, char *output_file) {
     // deschide fisier intrare
     int input = open(input_file, O_RDONLY);
@@ -147,6 +149,9 @@ void cp(char *input_file, char *output_file) {
         }
         nread = read(input, buff, size);
     }
+    
+    strcat(output, "File has been copied.");
+    printf("%s,\n", output);  
 
     // inchidem fisierele
     if (close(input) < 0) {
@@ -158,28 +163,43 @@ void cp(char *input_file, char *output_file) {
 }
 
 //removes file from current directory
+//rez_output
 void rmfile(char* file_name){
     char file_path[1024];
     strcpy(file_path, cwd);
     strcat(file_path, "/");
     strcat(file_path, file_name);
     
-    if(remove(file_path)){
+    if(!remove(file_path))
+    {
+    	strcat(output, "File has been deleted.");
+    	printf("%s,\n", output); 
+    }
+    else
+    {
         error = REMOVE_FILE_ERROR;
     }
 }
 
 //creates a directory
+//rez_output
 void makedir(char* folder_name){
     char folder_path[1024];
     strcpy(folder_path, cwd);
     strcat(folder_path, "/");
     strcat(folder_path, folder_name);
 
-   if(mkdir(folder_path, 0777) == -1){
+   if(!mkdir(folder_path, 0777) == -1)
+   {
+   	strcat(output, "Folder has been created.");
+    	printf("%s,\n", output); 
+   }
+   else
+   {
         error = CREATE_DIRECTORY_ERROR;
    } 
 }
+
 // removes directory
 void rmdr(char* folder_name){
     char folder_path[1024];
@@ -190,6 +210,11 @@ void rmdr(char* folder_name){
     if(rmdir(folder_path) == -1){
         error = REMOVE_DIRECTORY_ERROR;
     }
+    else
+    {
+    	strcat(output, "Folder has been deleted.");
+    	printf("%s,\n", output);
+    }
 }
 
 void history(){
@@ -198,7 +223,7 @@ void history(){
         puts("There are no previous commands saved in the history");
 
     for(int i = 0 ; i < cmd_counter ;++i){
-        printf("%s\n", history_log[i]);
+        printf("%s", history_log[i]);
     }
 }
 
@@ -208,7 +233,6 @@ void addToHistory(char* cmd){
     strcpy(history_log[cmd_counter++], cmd);
     
 }
-
 void ls(){
     pid_t pid;
 
@@ -266,7 +290,7 @@ void parse_line(){
     		{
     			free(output);
     			output = malloc(TOK_BUFSIZE * sizeof(char));
-    			execute();
+    			execute(tokens, nr_tokens);
     		}
     		
     		// trecem la comanda de dupa pipe
@@ -284,20 +308,30 @@ void parse_line(){
     		//rezultatul primei comenzi e stocat in output
     		//alteram vectorul de cuvinte astfel incat sa contina a doua comanda si rezultatul primei comenzi
     		tokens[0] = wrd; 		   //comanda a doua
+            
+            if(!strcmp(tokens[0], "touch")){
+                token = strtok(NULL, TOK_DELIM);
+                free(output);
+                output = malloc(TOK_BUFSIZE * sizeof(char));
+                strcpy(output, "");
+                strcat(output, token);
+            }
     		strcpy(tokens[1], output); //rezultatul primei comenzi
     		nr_tokens = 2;
     		
     		//executam comanda dupa pasii de mai sus
     		free(output);
     		output = malloc(TOK_BUFSIZE * sizeof(char));
-    		execute();
+    		execute(tokens, nr_tokens);
     		
     	}
     	else if(!strcmp(wrd,"||"))
-    	{
-    		free(output);
-    		output=malloc(TOK_BUFSIZE * sizeof(char));
-    		execute();
+    	{   
+            if(strcmp(output, "")){
+                free(output);
+                output=malloc(TOK_BUFSIZE * sizeof(char));
+            }
+    		execute(tokens, nr_tokens);
     		
     		if(error != 0)
     		{
@@ -309,6 +343,10 @@ void parse_line(){
     			token = strtok(NULL, TOK_DELIM);
     			continue;
     		}
+            else if(error == 0 && nr_tokens != 0){
+                nr_tokens = 0;
+                return;
+            }
     		else
     		{
     			//gasim prima comanda care nu da eroare
@@ -324,17 +362,22 @@ void parse_line(){
                         // acest caz trebuie tratat doar daca exista o comanda buna in sirul celorconditionate de ||, altfel sirul conditionat de && e din start fals 
     				token = strtok(NULL, TOK_DELIM);
     			}
-    			if(token == NULL) 
-                    // inseamna ca nicio comanda nu a fost buna, rezultatul total e fals
-                    error = LOGIC_OPERATION_FALSE; 
+    			// if(!strcmp(token, "\0")) 
+                //     // inseamna ca nicio comanda nu a fost buna, rezultatul total e fals
+                //     error = LOGIC_OPERATION_FALSE; 
     		}
     		
     	}
     	else if(!strcmp(wrd,"&&"))
-    	{
-    		free(output);
-    		output=malloc(TOK_BUFSIZE * sizeof(char));
-    		execute();
+    	{   
+            if(strcmp(output, "")){
+    		    free(output);
+    		    output=malloc(TOK_BUFSIZE * sizeof(char));
+            }
+            //else
+                // iesi din functie
+                // nu scrie nimic
+    		execute(tokens, nr_tokens);
     		
     		if(error != 0) break;
     		
@@ -350,7 +393,7 @@ void parse_line(){
 //rescriem
 void execute() {
 
-    if(!strcmp(tokens[0], "clear")){
+ if(!strcmp(tokens[0], "clear")){
         if(nr_tokens != 1){
             error = INVALID_ARG_NUMBER;
             return;
@@ -377,7 +420,6 @@ void execute() {
     else if(!strcmp(tokens[0], "echo")){
         echo();
     }
-
 
 
     else if(!strcmp(tokens[0], "cp")){
@@ -412,14 +454,6 @@ void execute() {
        rmdr(tokens[1]);
     }
 
-    else if(!strcmp(tokens[0], "cp")){
-        if(nr_tokens != 3){
-            error = INVALID_ARG_NUMBER;
-            return;
-        }
-        cp(tokens[1], tokens[2]);
-    }
-
     else if(!strcmp(tokens[0], "ls")){
         ls();
     }
@@ -440,12 +474,7 @@ void execute() {
         }
         history();
     }
-    else if (!strcmp(tokens[0], "cd")){
-        if(nr_tokens > 2){
-            error = INVALID_ARG_NUMBER;
-            return;
-        }
-    }
+
     else if (!strcmp(tokens[0], "exit")){
         if(nr_tokens != 1){
             error = INVALID_ARG_NUMBER;
@@ -458,11 +487,16 @@ void execute() {
     }
 }
 
-
 int main(){
 
     history_log = malloc(TOK_BUFSIZE * sizeof(char*));
+    cmd = malloc(MAX_TOKENS * sizeof(char**));
+    output = malloc(TOK_BUFSIZE * sizeof(char));
     command_line = malloc(TOK_BUFSIZE * sizeof(char));
+    // cmd = (parse_line(read_line()));
+
+
+    // shell_output = malloc(TOK_BUFSIZE * sizeof(char));
  
     // aflam path-ul
 
@@ -494,11 +528,15 @@ int main(){
 	
         // executa comanda daca nu am avut nicio eroare
         if(error == 0){
+            if(strcmp(output, "")){
         	free(output);
         	output = malloc(TOK_BUFSIZE * sizeof(char));
-        	execute();
+            }
+            if(nr_tokens){
+               execute();
+            }
             free(tokens);
-            free(output);
+
         }
         
         //daca avem o eroare ii afisam mesajul corespunzator
@@ -507,9 +545,6 @@ int main(){
         	error_handler(error);
         	error = 0;
         }
-    }
-
-    return 0;
+    }    return 0;
 
 }
-
