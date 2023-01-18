@@ -102,7 +102,7 @@ void error_handler(int error){
 
 }
 
-void execute();
+void execute(char **tokens,int nr_tokens);
 
 //clears terminal
 void clear(){
@@ -113,12 +113,15 @@ void clear(){
 // creaza fisier cu numele dat in directorul curent
 //rez_output
 void touch(char *file_name) {
-    if (fopen(file_name, "w")) 
+	FILE *aux;
+	aux=fopen(file_name, "w");
+    if (aux) 
     {
      	strcat(output, "File has been created.");
      	printf("%s,\n", output);   
     }
     else error = CREATE_FILE_ERROR;
+    fclose(aux);
 }
 
 //rez_output
@@ -133,7 +136,7 @@ void pwd(){
 void echo(){
     for (int i = 1; i < nr_tokens; i++) {
         printf("%s ", tokens[i]);
-        strcat(output, tokens1[i]);
+        strcat(output, tokens[i]);
         strcat(output, " ");
     }
     printf("\n");
@@ -306,7 +309,7 @@ void parse_line(){
     		{
     			free(output);
     			output = malloc(TOK_BUFSIZE * sizeof(char));
-    			execute();
+    			execute(tokens, nr_tokens);
     		}
     		
     		// trecem la comanda de dupa pipe
@@ -330,14 +333,14 @@ void parse_line(){
     		//executam comanda dupa pasii de mai sus
     		free(output);
     		output = malloc(TOK_BUFSIZE * sizeof(char));
-    		execute();
+    		execute(tokens, nr_tokens);
     		
     	}
     	else if(!strcmp(wrd,"||"))
     	{
     		free(output);
     		output=malloc(TOK_BUFSIZE * sizeof(char));
-    		execute();
+    		execute(tokens, nr_tokens);
     		
     		if(error != 0)
     		{
@@ -374,7 +377,7 @@ void parse_line(){
     	{
     		free(output);
     		output=malloc(TOK_BUFSIZE * sizeof(char));
-    		execute();
+    		execute(tokens, nr_tokens);
     		
     		if(error != 0) break;
     		
@@ -388,7 +391,7 @@ void parse_line(){
 }
 
 //rescriem
-void execute() {
+void execute(char **tokens, int nr_tokens) {
 
     if(!strcmp(tokens[0], "clear")){
         if(nr_tokens != 1){
@@ -532,7 +535,7 @@ int main(){
         if(error == 0){
         	free(output);
         	output = malloc(TOK_BUFSIZE * sizeof(char));
-        	execute();
+        	execute(tokens, nr_tokens);
             free(tokens);
             nr_tokens = 0;
         }
